@@ -195,7 +195,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 <!-- Daha Fazla menüsü -->
 <div id="more-menu" style="position:absolute;bottom:82px;left:10px;right:10px;z-index:250;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;display:none;">
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-    <div class="tool-btn" id="btn-wp" onclick="togglePanel('wp-panel','btn-wp');closeMore()"><span class="icon">📋</span><span>Noktalar</span></div>
+    <div class="tool-btn" id="btn-wp" onclick="showPinList();closeMore()"><span class="icon">📋</span><span>Noktalar</span></div>
     <div class="tool-btn" id="btn-layers" onclick="togglePanel('layer-panel','btn-layers');closeMore()"><span class="icon">🗂</span><span>Katman</span></div>
     <div class="tool-btn" id="btn-share" onclick="shareLocation();closeMore()"><span class="icon">🔗</span><span>Paylaş</span></div>
     <div class="tool-btn" id="btn-meas-hist" onclick="togglePanel('meas-hist-panel','btn-meas-hist');closeMore()"><span class="icon">📊</span><span id="btn-meas-hist-lbl">Geçmiş</span></div>
@@ -427,28 +427,8 @@ function initMap(){
   map.setView([39.0,35.0],6);
   map.on('click',e=>{closeMore();onMapClick(e);});
   map.on('mousemove',e=>{ showSnapPreview(e.latlng);document.getElementById('coord-display').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);});
-  let pt=null,pl=null,plStart=null;
-  map.on('mousedown touchstart',e=>{
-    pl=e.latlng||(e.originalEvent.touches?map.mouseEventToLatLng(e.originalEvent.touches[0]):null);
-    plStart=pl;
-    pt=setTimeout(()=>{
-      if(pl){
-        // Modal açılırken click event'ini engelle
-        map.once('click',ev=>L.DomEvent.stopPropagation(ev));
-        openNoteModal(pl);
-      }
-      pt=null;
-    },650);
-  });
-  map.on('mouseup touchend',()=>{if(pt){clearTimeout(pt);pt=null;}});
-  map.on('touchmove',e=>{
-    // Sadece büyük hareket olursa iptal et (5px üzeri)
-    if(!pt||!plStart) return;
-    const cur=e.originalEvent.touches?map.mouseEventToLatLng(e.originalEvent.touches[0]):null;
-    if(!cur) return;
-    const pxDist=map.latLngToContainerPoint(cur).distanceTo(map.latLngToContainerPoint(plStart));
-    if(pxDist>8){clearTimeout(pt);pt=null;}
-  });
+  // Long press kaldırıldı — donmaya neden oluyordu
+  // Nokta ekleme: Nokta butonu → haritaya tek dokun
   document.body.addEventListener('dragover',e=>e.preventDefault());
   document.body.addEventListener('drop',e=>{e.preventDefault();handleFile(e.dataTransfer.files[0]);});
   document.getElementById('file-input').addEventListener('change',e=>handleFile(e.target.files[0]));
@@ -1696,6 +1676,37 @@ let pinMode = false;
 let pins = []; // {id, ll, marker, labelMarker, name, label}
 let activePinId = null;
 let draggingPin = null;
+
+function showPinList() {
+  // Pin listesini wp-panel'de göster
+  const list = document.getElementById('wp-list');
+  if(!pins.length) {
+    list.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:12px">' + (currentLang==='tr'?'Henüz nokta yok — Nokta butonuna bas':'No pins yet — tap Pin button') + '</div>';
+  } else {
+    list.innerHTML = pins.map(p => {
+      const [N,E] = latLngToTM30(p.ll.lat, p.ll.lng);
+      return `<div class="wp-item">
+        <span style="color:#ff9f43">📌</span>
+        <div style="flex:1;min-width:0">
+          <div class="wp-name">${p.name||('Nokta '+(pins.indexOf(p)+1))}</div>
+          <div class="wp-coord">${N.toFixed(1)}, ${E.toFixed(1)}</div>
+        </div>
+        <span class="wp-goto" onclick="map.flyTo([${p.ll.lat},${p.ll.lng}],18);closeAllPanels();">Git</span>
+        <span class="wp-del" onclick="deletePinById('${p.id}');showPinList();">×</span>
+      </div>`;
+    }).join('');
+  }
+  togglePanel('wp-panel','btn-wp');
+}
+
+function deletePinById(id) {
+  const pin = pins.find(p=>p.id===id);
+  if(!pin) return;
+  map.removeLayer(pin.marker);
+  if(pin.labelMarker) map.removeLayer(pin.labelMarker);
+  pins = pins.filter(p=>p.id!==id);
+}
+
 
 function togglePinMode() {
   pinMode = !pinMode;
