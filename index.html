@@ -17,7 +17,7 @@
 :root{--bg:#0f0f1a;--surface:#1a1a2e;--surface2:#16213e;--accent:#4a9eff;--accent2:#00d4aa;--danger:#ff6b6b;--warn:#ff9f43;--text:#e8eaf0;--text2:#8892a4;--border:rgba(255,255,255,0.08);--radius:12px;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;color:var(--text);}
-#map{position:absolute;inset:0;z-index:1;}
+#map{position:absolute;inset:0;z-index:1;touch-action:pan-x pan-y;}
 #topbar{position:absolute;top:0;left:0;right:0;z-index:100;background:linear-gradient(to bottom,rgba(15,15,26,0.97) 60%,transparent);padding:10px 10px 22px;display:flex;align-items:center;gap:6px;}
 #upload-btn{display:flex;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:20px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;}
 #file-input{display:none;}
@@ -143,7 +143,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 <div id="loading"><div style="font-size:44px">🗺️</div><div style="font-size:18px;font-weight:700">Field Map</div><div style="font-size:11px;color:#4a9eff;margin-top:-8px;letter-spacing:3px;">BETA</div><div class="spinner"></div></div>
 <div id="map"></div>
 <div id="topbar">
-  <button id="upload-btn" onclick="document.getElementById('file-input').click()">📂 Yükle</button>
+  <button id="upload-btn" ontouchend="e=>{e.preventDefault();document.getElementById('file-input').click();}" onclick="document.getElementById('file-input').click()" style="touch-action:manipulation;">📂 Yükle</button>
   <input type="file" id="file-input" accept=".dxf,.dwg,.kml,.kmz">
   <span id="file-label">DXF · KML · KMZ</span>
   <div id="gps-info">
@@ -253,7 +253,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 <div id="obj-panel" style="position:absolute;left:10px;right:10px;bottom:82px;z-index:300;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:none;max-height:340px;overflow-y:auto;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
     <div id="obj-panel-title" style="font-size:13px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-    <span onclick="document.getElementById('obj-panel').style.display='none'" style="color:var(--danger);font-size:18px;cursor:pointer;flex-shrink:0;margin-left:8px;">×</span>
+    <span onclick="document.getElementById('obj-panel').style.display='none';clearObjCornerMarkers();" style="color:var(--danger);font-size:18px;cursor:pointer;flex-shrink:0;margin-left:8px;">×</span>
   </div>
   <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
     <button onclick="copyObjCoords()" style="flex:1;min-width:80px;padding:7px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent);">📋 Kopyala</button>
@@ -921,7 +921,7 @@ function parseDXFWithProj(text,name,offset){
           if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(!isNaN(lat)&&lat>=-90&&lat<=90){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);count++;}}
           else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(!isNaN(la1)&&la1>=-90&&la1<=90){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);count++;}}
           else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>!isNaN(p[0])&&p[0]>=-90&&p[0]<=90);if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>coords.push(p));count++;}}
-          else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(!isNaN(lat)&&lat>=-90&&lat<=90){L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);coords.push([lat,lng]);count++;}}
+          else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(!isNaN(lat)&&lat>=-90&&lat<=90){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));count++;}}
           else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>!isNaN(p[0])&&p[0]>=-90&&p[0]<=90);if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>coords.push(p));count++;}}
         }
       }
@@ -1220,18 +1220,54 @@ function latLngToTM30(lat, lng) {
   return [Math.round(Nout*1000)/1000, Math.round(E*1000)/1000];
 }
 
+let objCornerMarkers = [];
+
+function clearObjCornerMarkers() {
+  objCornerMarkers.forEach(m => map.removeLayer(m));
+  objCornerMarkers = [];
+}
+
 function showObjPanel(obj) {
   currentObjData = obj;
-  document.getElementById('obj-panel-title').textContent = obj.name + ' — ' + obj.pts.length + ' nokta';
+  clearObjCornerMarkers();
+
+  // Tip etiketi
+  const typeLabel = {
+    'line': currentLang==='tr'?'Çizgi':'Line',
+    'poly': currentLang==='tr'?'Alan':'Area',
+    'point': currentLang==='tr'?'Nokta':'Point',
+    'circle': currentLang==='tr'?'Daire':'Circle',
+    'arc': currentLang==='tr'?'Yay':'Arc',
+  }[obj.type] || obj.type;
+
+  document.getElementById('obj-panel-title').textContent = obj.name + ' — ' + typeLabel + ' — ' + obj.pts.length + ' nokta';
+
+  // Köşe markerlarını haritada göster
+  obj.pts.forEach((p, i) => {
+    const m = L.marker([p[0],p[1]], {
+      icon: L.divIcon({
+        html: `<div style="background:#ff9f43;color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);">${i+1}</div>`,
+        iconSize: [18,18], iconAnchor: [9,9], className: ''
+      }),
+      interactive: true
+    }).addTo(map);
+    m.on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      const [N,E] = latLngToTM30(p[0],p[1]);
+      m.bindPopup(`<b style="color:#e8eaf0">${i+1}. nokta</b><br><span style="font-family:monospace;font-size:11px;color:#8892a4">N: ${N.toFixed(3)}<br>E: ${E.toFixed(3)}</span>`).openPopup();
+    });
+    objCornerMarkers.push(m);
+  });
+
+  // Tablo
   const list = document.getElementById('obj-coord-list');
-  const proj = PROJECTIONS['turef_tm30'];
-  let html = '<div style="display:grid;grid-template-columns:1.2rem 1fr 1fr;gap:2px 8px;color:var(--text2);font-size:10px;margin-bottom:6px;"><span>#</span><span>N (TM30)</span><span>E (TM30)</span></div>';
+  let html = '<div style="display:grid;grid-template-columns:1.2rem 1fr 1fr;gap:2px 8px;color:var(--text2);font-size:10px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);"><span>#</span><span>N (TM30)</span><span>E (TM30)</span></div>';
   obj.pts.forEach((p,i) => {
     const [N,E] = latLngToTM30(p[0],p[1]);
-    html += `<div style="display:grid;grid-template-columns:1.2rem 1fr 1fr;gap:2px 8px;padding:3px 0;border-bottom:1px solid var(--border);">
-      <span style="color:var(--text2)">${i+1}</span>
-      <span style="color:var(--text)">${N.toFixed(3)}</span>
-      <span style="color:var(--text)">${E.toFixed(3)}</span>
+    html += `<div style="display:grid;grid-template-columns:1.2rem 1fr 1fr;gap:2px 8px;padding:4px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="map.flyTo([${p[0]},${p[1]}],19);">
+      <span style="background:#ff9f43;color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;">${i+1}</span>
+      <span style="color:var(--text);font-size:11px;">${N.toFixed(3)}</span>
+      <span style="color:var(--text);font-size:11px;">${E.toFixed(3)}</span>
     </div>`;
   });
   list.innerHTML = html;
@@ -1748,13 +1784,17 @@ function createLabelIcon(text) {
 
 function placePinAt(latlng) {
   const id = 'pin_' + Date.now();
-  const marker = L.marker(latlng, {
+
+  // Snap varsa ona yapış
+  const snapPt = findSnapVertex(latlng);
+  const useLl = snapPt || latlng;
+
+  const marker = L.marker(useLl, {
     icon: createPinIcon(''),
     draggable: true,
     autoPan: true
   }).addTo(map);
 
-  // Sürükleme
   marker.on('dragend', e => {
     const pin = pins.find(p=>p.id===id);
     if(!pin) return;
@@ -1763,20 +1803,22 @@ function placePinAt(latlng) {
     updatePinPopupCoords(pin);
   });
 
-  // Dokunma → popup
   marker.on('click', e => {
     L.DomEvent.stopPropagation(e);
     openPinModal(id);
   });
 
-  const pin = { id, ll: latlng, marker, labelMarker: null, name: '', label: '' };
+  const pin = { id, ll: useLl, marker, labelMarker: null, name: '', label: '' };
   pins.push(pin);
 
-  // Pin modunu kapat
-  togglePinMode();
-  
-  // Hemen modal aç
-  setTimeout(() => openPinModal(id), 100);
+  // Pin modunu kapat ÖNCE
+  pinMode = false;
+  document.getElementById('btn-pin').classList.remove('active');
+  document.getElementById('pin-mode-bar').style.display = 'none';
+  document.getElementById('map').style.cursor = '';
+
+  // Sonra modal aç
+  setTimeout(() => openPinModal(id), 200);
   return pin;
 }
 
