@@ -154,6 +154,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   <span id="coord-display">—</span>
 </div>
 <div id="beta-banner" style="position:absolute;top:54px;left:0;right:0;z-index:99;background:rgba(74,158,255,0.12);border-bottom:1px solid rgba(74,158,255,0.25);padding:5px 12px;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:var(--accent);">🧪 Beta — DXF · KML · KMZ dosyanı yükle</span><span onclick="this.parentElement.style.display='none'" style="color:var(--text2);cursor:pointer;">×</span></div>
+<div id="pin-mode-bar" style="position:absolute;top:54px;left:0;right:0;z-index:99;background:rgba(255,159,67,0.15);border-bottom:1px solid rgba(255,159,67,0.4);padding:6px 12px;display:none;align-items:center;justify-content:space-between;">
+  <span style="font-size:12px;color:#ff9f43;font-weight:600;">📌 Nokta modu — haritaya dokun</span>
+  <span onclick="togglePinMode()" style="color:var(--text2);cursor:pointer;font-size:14px;">✕ Kapat</span>
+</div>
 <div id="goto-bar">
   <input type="text" id="goto-input" placeholder="N  E  (ör: 4567388  388429)" inputmode="decimal">
   <button onclick="gotoCoord()">Git</button>
@@ -184,13 +188,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   <div class="tool-btn" id="btn-search" onclick="toggleSearch()"><span class="icon">🔍</span><span>Ara</span></div>
   <div class="tool-btn" id="btn-maptype" onclick="togglePanel('maptype-panel','btn-maptype')"><span class="icon">🛰</span><span>Harita</span></div>
   <div class="tool-btn" id="btn-goto" onclick="toggleGoto()"><span class="icon">🎯</span><span>Git</span></div>
+  <div class="tool-btn" id="btn-pin" onclick="togglePinMode()"><span class="icon">📌</span><span id="btn-pin-lbl">Nokta</span></div>
   <div class="tool-btn" id="btn-stakeout" onclick="openStakeoutModal()"><span class="icon">🔭</span><span id="btn-stakeout-lbl">Konum Bul</span></div>
   <div class="tool-btn" id="btn-more" onclick="toggleMore()"><span class="icon">⋯</span><span id="btn-more-lbl">Daha Fazla</span></div>
 </div>
 <!-- Daha Fazla menüsü -->
 <div id="more-menu" style="position:absolute;bottom:82px;left:10px;right:10px;z-index:250;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;display:none;">
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-    <div class="tool-btn" id="btn-wp" onclick="togglePanel('wp-panel','btn-wp');closeMore()"><span class="icon">📌</span><span>Nokta</span></div>
+    <div class="tool-btn" id="btn-wp" onclick="togglePanel('wp-panel','btn-wp');closeMore()"><span class="icon">📋</span><span>Noktalar</span></div>
     <div class="tool-btn" id="btn-layers" onclick="togglePanel('layer-panel','btn-layers');closeMore()"><span class="icon">🗂</span><span>Katman</span></div>
     <div class="tool-btn" id="btn-share" onclick="shareLocation();closeMore()"><span class="icon">🔗</span><span>Paylaş</span></div>
     <div class="tool-btn" id="btn-meas-hist" onclick="togglePanel('meas-hist-panel','btn-meas-hist');closeMore()"><span class="icon">📊</span><span id="btn-meas-hist-lbl">Geçmiş</span></div>
@@ -322,6 +327,34 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   </div>
 </div>
 <!-- Note modal -->
+<!-- Pin bilgi modal -->
+<div id="pin-modal" style="position:absolute;inset:0;z-index:500;background:rgba(0,0,0,0.75);display:none;align-items:flex-end;justify-content:center;padding:0;">
+  <div style="background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:20px;width:100%;max-width:480px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:600;" id="pin-modal-title">Nokta Bilgisi</div>
+      <span onclick="closePinModal()" style="color:var(--text2);cursor:pointer;font-size:20px;">×</span>
+    </div>
+    <!-- Koordinatlar -->
+    <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+      <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">TUREF TM30</div>
+      <div style="font-size:13px;font-family:monospace;color:var(--text);" id="pin-coord-tm30">—</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:6px;margin-bottom:4px;">WGS84</div>
+      <div style="font-size:13px;font-family:monospace;color:var(--text);" id="pin-coord-wgs">—</div>
+    </div>
+    <!-- İsim input -->
+    <input type="text" id="pin-name-input" placeholder="İsim (isteğe bağlı)"
+      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;color:var(--text);outline:none;margin-bottom:8px;">
+    <!-- Etiket input -->
+    <input type="text" id="pin-label-input" placeholder="🏷️ Harita etiketi (isteğe bağlı)"
+      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;color:var(--text);outline:none;margin-bottom:12px;">
+    <!-- Butonlar -->
+    <div style="display:flex;gap:8px;">
+      <button onclick="deletePinFromModal()" style="padding:9px 14px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid var(--danger);background:transparent;color:var(--danger);">🗑️ Sil</button>
+      <button onclick="copyPinCoords()" style="flex:1;padding:9px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent);">📋 Kopyala</button>
+      <button onclick="savePinInfo()" style="flex:1;padding:9px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#fff;">Kaydet</button>
+    </div>
+  </div>
+</div>
 <div id="note-modal">
   <div id="note-box">
     <h3>Nokta ekle</h3>
@@ -1631,6 +1664,9 @@ window.applyLang=function(){
   _origApplyLang();
   const sl=document.getElementById('btn-stakeout-lbl');if(sl)sl.textContent=t('stakeout');
   const bml=document.getElementById('btn-more-lbl');if(bml)bml.textContent=currentLang==='tr'?'Daha Fazla':'More';
+  const bpl=document.getElementById('btn-pin-lbl');if(bpl)bpl.textContent=currentLang==='tr'?'Nokta':'Pin';
+  const pmb=document.getElementById('pin-mode-bar');
+  if(pmb){const sp=pmb.querySelector('span');if(sp)sp.textContent=currentLang==='tr'?'📌 Nokta modu — haritaya dokun':'📌 Pin mode — tap map';}
   const mhl=document.getElementById('btn-meas-hist-lbl');if(mhl)mhl.textContent=t('measHistory');
   const mht=document.getElementById('meas-hist-title');if(mht)mht.textContent=t('measHistory');
   const mhc=document.getElementById('meas-hist-clear');if(mhc)mhc.textContent=t('measHistClear');
@@ -1653,6 +1689,157 @@ setTimeout(()=>{
 
 // GPS güncellenince stakeout güncelle
 document.addEventListener('gps-update',updateStakeout);
+
+
+// ── Pin (Nokta) Modu ──────────────────────────────────────
+let pinMode = false;
+let pins = []; // {id, ll, marker, labelMarker, name, label}
+let activePinId = null;
+let draggingPin = null;
+
+function togglePinMode() {
+  pinMode = !pinMode;
+  const btn = document.getElementById('btn-pin');
+  const bar = document.getElementById('pin-mode-bar');
+  btn.classList.toggle('active', pinMode);
+  bar.style.display = pinMode ? 'flex' : 'none';
+  if(pinMode) {
+    closeAllPanels();
+    showToast(currentLang==='tr'?'Haritaya dokun — iğne bırak':'Tap map to place pin');
+    // İğne imleci
+    document.getElementById('map').style.cursor = 'crosshair';
+  } else {
+    document.getElementById('map').style.cursor = '';
+  }
+}
+
+function createPinIcon(name) {
+  return L.divIcon({
+    html: `<div style="position:relative;width:28px;height:36px;">
+      <svg width="28" height="36" viewBox="0 0 28 36">
+        <path d="M14 0 C6.3 0 0 6.3 0 14 C0 24.5 14 36 14 36 C14 36 28 24.5 28 14 C28 6.3 21.7 0 14 0Z" fill="#ff9f43" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="14" cy="14" r="5" fill="#fff"/>
+      </svg>
+    </div>`,
+    iconSize: [28, 36],
+    iconAnchor: [14, 36],
+    className: ''
+  });
+}
+
+function createLabelIcon(text) {
+  return L.divIcon({
+    html: `<div style="background:rgba(26,26,46,0.9);color:#e8eaf0;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid rgba(255,159,67,0.5);pointer-events:none;">${text}</div>`,
+    className: '',
+    iconAnchor: [-4, 18]
+  });
+}
+
+function placePinAt(latlng) {
+  const id = 'pin_' + Date.now();
+  const marker = L.marker(latlng, {
+    icon: createPinIcon(''),
+    draggable: true,
+    autoPan: true
+  }).addTo(map);
+
+  // Sürükleme
+  marker.on('dragend', e => {
+    const pin = pins.find(p=>p.id===id);
+    if(!pin) return;
+    pin.ll = e.target.getLatLng();
+    if(pin.labelMarker) pin.labelMarker.setLatLng(pin.ll);
+    updatePinPopupCoords(pin);
+  });
+
+  // Dokunma → popup
+  marker.on('click', e => {
+    L.DomEvent.stopPropagation(e);
+    openPinModal(id);
+  });
+
+  const pin = { id, ll: latlng, marker, labelMarker: null, name: '', label: '' };
+  pins.push(pin);
+
+  // Pin modunu kapat
+  togglePinMode();
+  
+  // Hemen modal aç
+  setTimeout(() => openPinModal(id), 100);
+  return pin;
+}
+
+function openPinModal(id) {
+  const pin = pins.find(p=>p.id===id);
+  if(!pin) return;
+  activePinId = id;
+
+  // Koordinatları hesapla
+  const lat = pin.ll.lat, lng = pin.ll.lng;
+  const [N, E] = latLngToTM30(lat, lng);
+  document.getElementById('pin-coord-tm30').textContent = `N: ${N.toFixed(3)}   E: ${E.toFixed(3)}`;
+  document.getElementById('pin-coord-wgs').textContent = `${lat.toFixed(6)},  ${lng.toFixed(6)}`;
+  document.getElementById('pin-name-input').value = pin.name || '';
+  document.getElementById('pin-label-input').value = pin.label || '';
+  document.getElementById('pin-modal-title').textContent = pin.name || (currentLang==='tr'?'Nokta Bilgisi':'Pin Info');
+  document.getElementById('pin-modal').style.display = 'flex';
+}
+
+function closePinModal() {
+  document.getElementById('pin-modal').style.display = 'none';
+  activePinId = null;
+}
+
+function savePinInfo() {
+  const pin = pins.find(p=>p.id===activePinId);
+  if(!pin) return;
+  pin.name = document.getElementById('pin-name-input').value.trim();
+  pin.label = document.getElementById('pin-label-input').value.trim();
+
+  // Etiket güncelle
+  if(pin.labelMarker) { map.removeLayer(pin.labelMarker); pin.labelMarker = null; }
+  if(pin.label) {
+    pin.labelMarker = L.marker(pin.ll, {
+      icon: createLabelIcon(pin.label),
+      interactive: false,
+      zIndexOffset: -10
+    }).addTo(map);
+  }
+
+  // İkon güncelle (isim varsa tooltip)
+  if(pin.name) pin.marker.bindTooltip(pin.name, {permanent:false, direction:'top'});
+
+  closePinModal();
+  showToast(currentLang==='tr'?'Kaydedildi':'Saved');
+}
+
+function deletePinFromModal() {
+  const pin = pins.find(p=>p.id===activePinId);
+  if(!pin) return;
+  map.removeLayer(pin.marker);
+  if(pin.labelMarker) map.removeLayer(pin.labelMarker);
+  pins = pins.filter(p=>p.id!==activePinId);
+  closePinModal();
+  showToast(currentLang==='tr'?'Nokta silindi':'Pin deleted');
+}
+
+function copyPinCoords() {
+  const pin = pins.find(p=>p.id===activePinId);
+  if(!pin) return;
+  const [N,E] = latLngToTM30(pin.ll.lat, pin.ll.lng);
+  const txt = `${pin.name||'Nokta'}
+TM30: N=${N.toFixed(3)} E=${E.toFixed(3)}
+WGS84: ${pin.ll.lat.toFixed(6)}, ${pin.ll.lng.toFixed(6)}`;
+  navigator.clipboard.writeText(txt).then(()=>showToast(currentLang==='tr'?'Kopyalandı':'Copied')).catch(()=>{});
+}
+
+function updatePinPopupCoords(pin) {
+  if(activePinId === pin.id) {
+    const [N,E] = latLngToTM30(pin.ll.lat, pin.ll.lng);
+    document.getElementById('pin-coord-tm30').textContent = `N: ${N.toFixed(3)}   E: ${E.toFixed(3)}`;
+    document.getElementById('pin-coord-wgs').textContent = `${pin.ll.lat.toFixed(6)},  ${pin.ll.lng.toFixed(6)}`;
+  }
+}
 
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
